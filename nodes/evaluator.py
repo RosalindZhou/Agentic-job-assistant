@@ -2,19 +2,20 @@
 节点 Tool: Evaluator
 处理 Scraper 抓取的缓存内容。集成去重、解释性理由(Explainable AI)。
 """
-import json
 from llm_manager import LLMManager
 from state import AgentState
 from langchain_core.messages import HumanMessage, ToolMessage
 from prompts import EVALUATOR_PROMPT
 import logger
+from nodes.job_output import extract_jobs
 
 class EvaluatorNode:
     def __init__(self):
         self.llm = LLMManager().get_evaluator()
 
     def run(self, state: AgentState) -> dict:
-        last_message = state.get("messages", [])[-1]
+        messages = state.get("messages", [])
+        last_message = messages[-1] if messages else None
         tool_call = next((tc for tc in getattr(last_message, 'tool_calls', []) if tc["name"] == "evaluate_jobs"), None)
         
         if not tool_call:
@@ -23,7 +24,7 @@ class EvaluatorNode:
         tool_call_id = tool_call["id"]
         markdown = state.get("scraped_raw_data", "")
         negative_kb = state.get("negative_knowledge_base", [])
-        seen_keys = state.get("seen_keys", set())
+        seen_keys = set(state.get("seen_keys", set()))
         query = state.get("query", "")
         site = state.get("current_site", "")
 
@@ -45,23 +46,14 @@ class EvaluatorNode:
 
         try:
             response = self.llm.invoke([HumanMessage(content=prompt)])
-            raw = response.content.strip()
-            
-            # 改进的 JSON 提取：寻找最外层的 {}
-            start = raw.find("{")
-            end = raw.rfind("}") + 1
-            
-            candidates = []
-            if start != -1 and end > start:
-                json_str = raw[start:end]
-                candidates = self._extract_candidates(json_str)
+            candidates = (
+                extract_jobs(response.content)
+                if isinstance(response.content, str)
+                else []
+            )
 
             if not candidates:
-                # 记录原始数据以便人工排查
-                with open("evaluator_error_debug.log", "a", encoding="utf-8") as f:
-                    f.write(f"\n\n--- FAIL at {datetime.now()} ---\n{raw}\n")
-                
-                logger.error("JSON 提取为空或格式错误。原始响应已存至 evaluator_error_debug.log")
+                logger.error("The evaluator response contained no usable job listings.")
                 
                 # 关键：即使失败也要记入 history，防止 Agent 陷入死循环
                 search_entry = f"{site} - {query} - FAILED(JSON)"
@@ -102,21 +94,3 @@ class EvaluatorNode:
                 "messages": [ToolMessage(content=f"Evaluator system error: {str(e)}", tool_call_id=tool_call_id)],
                 "search_history": [f"{site} - {query} - ERROR"]
             }
-
-    def _extract_candidates(self, json_str: str) -> list:
-        """强化版 JSON 提取逻辑，支持正则补齐"""
-        import re
-        try:
-            result = json.loads(json_str)
-            return result.get("job_list", [])
-        except json.JSONDecodeError:
-            # 正则抠取每一个 {} 对象
-            chunks = re.findall(r'\{(?:[^{}]|(?R))*\}', json_str, re.DOTALL)
-            results = []
-            for chunk in chunks:
-                try:
-                    results.append(json.loads(chunk))
-                except: continue
-            return results
-
-from datetime import datetime

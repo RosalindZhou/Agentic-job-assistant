@@ -1,50 +1,27 @@
-# Agentic AI 算法岗求职助手
+# Agentic Job Assistant
 
-> **"不是单纯的爬虫，而是一个有灵魂、会反思、懂业务的数字猎头。"**
+A Python prototype that collects AI internship listings, filters them with a language model, and presents the results in a local dashboard. Its default search targets Chinese-language job boards.
 
-## 💡 项目简介
-本项目是一个基于 **ReAct 架构** 的自主 AI Agent，旨在帮助 2026/27 届同学从海量杂乱的招聘网站中，精准打捞出真正的 **AI 算法实习与校招岗位**。它能像真人一样思考搜索策略、自动切换平台、并用技术总监的视角严格筛选每一条岗位描述（JD）。
+## Workflow
 
----
+1. The LangGraph agent chooses a search or evaluation action.
+2. A Chromium browser session collects listing text.
+3. The evaluator extracts and filters candidate postings. State reducers deduplicate results.
+4. A reflection step updates search guidance. The run exports local CSV and JSON results and serves a dashboard.
 
-## 🔥 核心黑科技 (Core Features)
+## Setup and usage
 
-*   **多网站自主策略切换**：无缝穿梭于“实习僧”、“智联招聘”、“猎聘”三大平台。一旦某个网站触发风控或无结果，Agent 会自动转向下一个战场。
-*   **动态搜索 Query 改写**：内置 **Critic (反思节点)**。系统会自动分析“为什么前几轮搜不到”，并动态生成更具穿透力的搜索词（如从“NLP”进化到“LLM 2026届 实习”）。
-*   **硬核技术栈自动识别**：DeepSeek 全栈扫描 JD。不仅能抓标题，还能自动提炼出 PyTorch, CUDA, Transformer, RAG 等核心关键词，生成岗位技术画像。
-*   **工业级稳定性系统**：针对 LLM 的“幻觉道歉”、“JSON 语法报错”等顽疾，实装了**断骨续筋解析器**与**工具强制调用策略**，确保持续挂机 50 轮不崩溃。
+From the repository root, activate a Python virtual environment and install the dependencies. A compatible local Chrome or Chromium browser and network access are required.
 
----
+```sh
+python -m pip install -r requirements.txt
+python main.py
+```
 
-## 🎯 严格的身份核验体系 (Strict Filtering)
-这是本项目最硬核的逻辑。Agent 在提取数据时，会根据以下信号进行“政治审查”，确保 0 社招混入：
+Before running the entry point, copy `.env.example` to `.env` and configure at least one provider key: `SILICON_API_KEY`, `GROQ_API_KEY`, or `GEMINI_API_KEY`. The dashboard starts on port 8000 after collection. Press Ctrl+C to stop it.
 
-### ✅ 强正向信号 (优先保留)
-- **关键词**：实习、校招、应届、2026届、暑期实习、日薪（xx元/天）。
-- **描述词**：在校生、学生、毕业生、培养计划。
+## Limitations
 
-### ⚠️ 弱正向信号 (辅助判定)
-- **描述偏基础**：如“基础扎实”、“导师带”、“对前沿技术感兴趣”。
-- **无经验要求**：全文未提工作年限要求。
+Listing collection depends on site layouts and browser availability. Model filtering can omit relevant postings or retain unrelated ones. Review results against the original listings.
 
-### ❌ 强负向信号 (有以下字眼必过滤)
-- **经验硬伤**：出现 3年以上、3-5年、5年以上经验等。
-- **职级过高**：出现 高级、资深、专家、架构师、Leader 等。
-- **职责过重**：负责系统全生命周期设计、架构优化、大规模生产系统运维。
-
----
-
-## 🛠️ 技术底座
-- **核心大脑**：DeepSeek-V3 (SiliconFlow 满血版)
-- **备选/容灾**：Groq (Llama-3.1) / Gemini 2.0 Flash
-- **框架**：LangGraph (ReAct Pattern) + LangChain
-- **采集**：DrissionPage (自动化流水线) + RapidOCR (薪资解密)
-- **看板**：Vanilla HTML/JS + 动态数据渲染
-
----
-
-## 🚀 快速启动
-1. **配置环境**：复制 `.env.example` 为 `.env`，填入自己的 `SILICON_API_KEY`（`.env` 已被 `.gitignore` 排除，不会提交到仓库）。
-2. **安装依赖**：`pip install -r requirements.txt`
-3. **启动 Agent**：运行`python main.py`
-4. **查看看板**：程序会在浏览器自动打开看板，你可以实时看到 50 个高精度岗位的滚动更新。
+Run the offline parser tests with `python -m unittest discover -s tests`.

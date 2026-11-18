@@ -20,6 +20,7 @@ ENV/
 
 # ---------------- 运行产物 ----------------
 data.json
+AI_Engineer_Jobs_*.csv
 logs/
 *.log
 scratch/
